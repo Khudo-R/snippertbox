@@ -1,46 +1,53 @@
 package main
 
 import (
+	"database/sql"
 	"flag"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 type application struct {
-	errorLog *log.Logger
-	infoLog  *log.Logger
+	logger *slog.Logger
 }
 
 func main() {
 	addr := flag.String("addr", ":4000", "HTTP network address")
+	dns := flag.String("dns", "web:Qttsix222@/snippetbox?parseTime=true", "MySQL data source name")
 	flag.Parse()
 
-	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
-	errorLog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	db, err := openDB(*dns)
+
+	if err != nil {
+		logger.Error(err.Error())
+	}
+
+	defer db.Close()
 
 	app := &application{
-		errorLog: errorLog,
-		infoLog:  infoLog,
+		logger: logger,
 	}
 
-	mux := http.NewServeMux()
+	logger.Info("starting server", "addr", *addr)
+	err = http.ListenAndServe(*addr, app.routes())
+	logger.Error(err.Error())
+}
 
-	fileServer := http.FileServer((http.Dir("./ui/static/")))
+func openDB(dns string) (*sql.DB, error) {
+	db, err := sql.Open("mysql", dns)
 
-	mux.Handle("/static/", http.StripPrefix("/static", fileServer))
-
-	mux.HandleFunc("/", app.home)
-	mux.HandleFunc("/snippet/view", app.snippetView)
-	mux.HandleFunc("/snippet/create", app.snippetCreate)
-
-	srv := &http.Server{
-		Addr:     *addr,
-		ErrorLog: errorLog,
-		Handler:  mux,
+	if err != nil {
+		return nil, err
 	}
 
-	infoLog.Printf("Starting server on %s", *addr)
-	err := srv.ListenAndServe()
-	errorLog.Fatal(err)
+	if err = db.Ping(); err != nil {
+		return nil, err
+	}
+
+	return db, nil
 }

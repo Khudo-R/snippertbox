@@ -8,10 +8,7 @@ import (
 )
 
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		app.notFound(w)
-		return
-	}
+	w.Header().Add("Server", "Go")
 
 	files := []string{
 		"./ui/html/base.tmpl.html",
@@ -20,20 +17,21 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 	}
 	ts, err := template.ParseFiles(files...)
 	if err != nil {
-		app.serverError(w, err)
+		app.serverError(w, r, err)
 		return
 	}
 
 	err = ts.ExecuteTemplate(w, "base", nil)
 	if err != nil {
-		app.serverError(w, err)
+		app.serverError(w, r, err)
 	}
 }
 
 func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.URL.Query().Get("id"))
+	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id < 1 {
-		app.notFound(w)
+		app.logger.Error("Invalid ID parameter", "id", r.PathValue("id"))
+		app.clientError(w, http.StatusBadRequest)
 		return
 	}
 
@@ -41,9 +39,10 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.Header().Set("Allow", http.MethodPost)
-		app.clientError(w, http.StatusMethodNotAllowed)
-		return
-	}
+	w.Write([]byte("Display a form for creating a new snippet..."))
+}
+
+func (app *application) snippetCreatePost(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte("Save a new snippet..."))
 }
