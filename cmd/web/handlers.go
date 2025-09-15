@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"snippetbox.khudo.net/internal/models"
+	"snippetbox.khudo.net/internal/validation"
 )
 
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +50,18 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 	data := app.newTemplateData(r)
 
+	data.Form = snippetCreateFrom{
+		Expires: 365,
+	}
+
 	app.render(w, r, http.StatusOK, "create.tmpl.html", data)
+}
+
+type snippetCreateFrom struct {
+	Title   string
+	Content string
+	Expires int
+	validation.Validator
 }
 
 func (app *application) snippetCreatePost(w http.ResponseWriter, r *http.Request) {
@@ -59,16 +71,31 @@ func (app *application) snippetCreatePost(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	title := r.PostForm.Get("title")
-	content := r.PostForm.Get("content")
-
 	expires, err := strconv.Atoi(r.PostForm.Get("expires"))
 	if err != nil {
 		app.clientError(w, http.StatusBadRequest)
 		return
 	}
 
-	id, err := app.snippets.Insert(title, content, expires)
+	form := snippetCreateFrom{
+		Title:   r.PostForm.Get("title"),
+		Content: r.PostForm.Get("content"),
+		Expires: expires,
+	}
+
+	form.CheckField(validation.NotBlank(form.Title), "title", "This field cannot be blank")
+	form.CheckField(validation.MaxChars(form.Title, 100), "title", "This field is too long (maximum is 100 characters)")
+	form.CheckField(validation.NotBlank(form.Content), "content", "This field cannot be blank")
+	form.CheckField(validation.PermittedValues(form.Expires, 1, 7, 365), "expires", "This field must be equal to 1, 7 or 365")
+
+	if !form.Valid() {
+		data := app.newTemplateData(r)
+		data.Form = form
+		app.render(w, r, http.StatusUnprocessableEntity, "create.tmpl.html", data)
+		return
+	}
+
+	id, err := app.snippets.Insert(form.Title, form.Content, form.Expires)
 	if err != nil {
 		app.serverError(w, r, err)
 		return
