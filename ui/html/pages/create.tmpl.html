@@ -1,8 +1,8 @@
 {{define "title"}}Create a New Snippet{{end}}
 
 {{define "main"}}
-  <form action="/snippet/create" method="post">
-    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+  <form action='/snippet/create' method='POST'>
+  <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
     <div>
       <label for="title">Title:</label>
       {{with .Form.FieldErrors.title}}

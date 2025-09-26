@@ -31,7 +31,7 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id < 1 {
 		app.logger.Error("Invalid ID parameter", "id", r.PathValue("id"))
-		app.clientError(w, http.StatusBadRequest)
+		app.clientError(w, http.StatusNotFound)
 		return
 	}
 
